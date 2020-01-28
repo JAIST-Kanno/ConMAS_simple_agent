@@ -72,24 +72,30 @@ func main() {
     n.Publish("agents.init", "init")
     println("init!")
 
-    n.Subscribe("agents.report", func(msg *simNum) {
-        diffX := msg.x - current.x
-        diffY := msg.y - current.y
-        r := math.Sqrt(math.Pow(diffX, 2) + math.Pow(diffY, 2))
-        if r <= shortestR {
-            angle := math.Atan2(diffY , diffX)
-            if math.Abs(angle - current.direction) <= viewAngle/2 {
-                if angle - current.direction > 0{
-                    next.direction = current.direction - (math.Pi / 2) * ((viewR - r) / viewR)
-                    next.direction = math.Mod(next.direction, 2 * math.Pi)
-                    if next.direction < 0 {
-                        next.direction = next.direction + 2 * math.Pi
+    n.Subscribe("agents.report", func(msg simNum) {
+        if msg != current {
+            diffX := msg.x - current.x
+            diffY := msg.y - current.y
+            r := math.Sqrt(math.Pow(diffX, 2) + math.Pow(diffY, 2))
+            if r <= shortestR {
+                angle := math.Atan2(diffY, diffX)
+                if math.Abs(angle-current.direction) <= viewAngle/2 {
+                    diffX = diffX - current.speed * math.Cos(current.direction) + msg.speed * math.Cos(msg.direction)
+                    diffY = diffY - current.speed * math.Sin(current.direction) + msg.speed * math.Sin(msg.direction)
+                    futureR := math.Sqrt(math.Pow(diffX, 2) + math.Pow(diffY, 2))
+                    angle = math.Atan2(diffY, diffX)
+                    if angle - current.direction > 0 {
+                        next.direction = current.direction - (math.Pi/2) * ((viewR - futureR) / viewR)
+                        next.direction = math.Mod(next.direction, 2*math.Pi)
+                        if next.direction < 0 {
+                            next.direction = next.direction + 2 * math.Pi
+                        }
+                        shortestR = r
+                    } else {
+                        next.direction = current.direction + (math.Pi/2) * ((viewR - futureR) / viewR)
+                        next.direction = math.Mod(next.direction, 2 * math.Pi)
+                        shortestR = r
                     }
-                    shortestR = r
-                } else {
-                    next.direction = current.direction + (math.Pi / 2) * ((viewR - r) / viewR)
-                    next.direction = math.Mod(next.direction, 2 * math.Pi)
-                    shortestR = r
                 }
             }
         }
@@ -119,6 +125,7 @@ func main() {
         current.y = next.y
         current.direction = next.direction
         current.speed = next.speed
+
         shortestR = viewR
         println("x:", current.x, "y:", current.y, "direction:", current.direction, "speed:", current.speed)
         n.Publish("agents.moved", current)
