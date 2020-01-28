@@ -13,3 +13,4 @@ clean: ./ConMAS_simple_agent
 
 containerize:
 	docker build -t docker.pkg.github.com/jaist-kanno/conmas_simple_agent/simple_agent:1.0 .
+	docker build -t jaistkanno/simple_agent:1.0 .

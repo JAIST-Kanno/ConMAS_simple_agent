@@ -41,21 +41,20 @@ func main() {
     flag.Float64Var(&viewR, "view_r", math.NaN(), "init view r")
     flag.StringVar(&nats_server, "nats_server", "nats:4222", "NATS messaging server")
     flag.Parse()
-
-    if x == math.NaN() {
+    if math.IsNaN(x) {
         x = rand.Float64() * wall
     }
-    if y == math.NaN() {
+    if math.IsNaN(y) {
         y = rand.Float64() * wall
     }
-    if speed == math.NaN() {
+    if math.IsNaN(speed) {
         speed = 1.0 + (rand.Float64() * 4.0)
     }
-    if viewAngle == math.NaN() {
+    if math.IsNaN(viewAngle) {
         viewAngle = (math.Pi / 6.0) + (rand.Float64() * math.Pi * 5.0 / 6.0)
     }
-    if viewR == math.NaN() {
-        viewR = rand.Float64() * 15.0
+    if math.IsNaN(viewR) {
+        viewR = 3.0 * rand.Float64() * 20.0
     }
 
     current := simNum{x: x, y: y, direction: direction, speed: speed}
@@ -73,11 +72,20 @@ func main() {
     println("init!")
 
     n.Subscribe("agents.report", func(msg simNum) {
+        if msg == current {
+            println("fromME!")
+        }
+        if msg.x == current.x && msg.y == current.y {
+            println("check!")
+        }
         if msg != current {
             diffX := msg.x - current.x
             diffY := msg.y - current.y
             r := math.Sqrt(math.Pow(diffX, 2) + math.Pow(diffY, 2))
-            if r <= shortestR {
+            if (r == 0.0) {
+                println("from me")
+            }
+            if (r != 0.0) && (r <= shortestR) {
                 angle := math.Atan2(diffY, diffX)
                 if math.Abs(angle-current.direction) <= viewAngle/2 {
                     diffX = diffX - current.speed * math.Cos(current.direction) + msg.speed * math.Cos(msg.direction)
@@ -100,7 +108,8 @@ func main() {
             }
         }
     })
-    nc.Subscribe("api.move", func(msg *nats.Msg) {
+    n.Subscribe("api.move", func(msg string) {
+        //println("movin!")
         next.x = current.x + next.speed*math.Sin(next.direction)
         next.y = current.y + next.speed*math.Cos(next.direction)
         for loop := 0; ; {
@@ -125,23 +134,23 @@ func main() {
         current.y = next.y
         current.direction = next.direction
         current.speed = next.speed
-
+        //println(shortestR)
         shortestR = viewR
-        println("x:", current.x, "y:", current.y, "direction:", current.direction, "speed:", current.speed)
+        //println("x:", current.x, "y:", current.y, "direction:", current.direction, "speed:", current.speed)
         n.Publish("agents.moved", current)
     })
-    nc.Subscribe("api.next", func(msg *nats.Msg) {
+    n.Subscribe("api.next", func(msg string) {
+        //println("next!")
         n.Publish("agents.report", current)
     })
     n.Subscribe("api.exit", func(msg string) {
         println("EXIT!")
         os.Exit(0)
     })
+    println("ok")
     if err != nil {
         panic(err)
     }
-    nc.Flush()
-    n.Flush()
     runtime.Goexit()
 }
 
